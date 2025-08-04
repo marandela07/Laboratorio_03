@@ -1,0 +1,118 @@
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//Universidad del Valle de Guatemala
+//Maryela Morales #23726
+//Electrónica Digital 02
+//05/08/2025
+//Laboratorio 03 - Funcionamiento Interrupciones
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//librerías 
+#include <Arduino.h>
+#include <stdint.h>
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//definición de pines
+#define led_1 15
+#define led_2 2
+#define led_3 5
+#define led_4 18
+#define but_Avanzar 32
+#define but_Retroceder 35
+
+#define delayDebounce 250
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//prototipos de funciones
+void iniciarBut_Avanzar(void);
+void iniciarBut_Retroceder(void);
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//variables globales
+volatile int8_t contador = 0;
+volatile bool but_AvanzarPresionado;
+volatile bool but_RetrocederPresionado;
+volatile uint32_t lastBut_Avanzar = 0;
+volatile uint32_t lastBut_Retroceder = 0;
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//ISRS de interrupción
+
+//funcion para funcionamiento en binario
+void IRAM_ATTR FuncionesBinario(void){
+  digitalWrite(led_1, (contador >> 3) & 0x01);
+  digitalWrite(led_2, (contador >> 2) & 0x01);
+  digitalWrite(led_3, (contador >> 1) & 0x01);
+  digitalWrite(led_4, (contador >> 0) & 0x01);
+}
+
+//interrupción boton avanzar
+void IRAM_ATTR but_Avanzar_ISR(void){
+  uint32_t tiempoActual1 = millis();
+
+  if(tiempoActual1 - lastBut_Avanzar > delayDebounce){
+  but_AvanzarPresionado = true;
+  contador++;
+  if (contador > 15) contador = 0;
+  FuncionesBinario();
+  lastBut_Avanzar = tiempoActual1;
+  }
+}
+
+//interrupción boton retroceder
+void IRAM_ATTR but_Retroceder_ISR(void){
+  uint32_t tiempoActual2 = millis();
+
+  if(tiempoActual2 - lastBut_Retroceder > delayDebounce){
+  but_RetrocederPresionado = true;
+  contador--;
+  if (contador < 0) contador = 15;
+  FuncionesBinario();
+  lastBut_Retroceder = tiempoActual2;
+  }
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//configuración 
+void setup(){
+  Serial.begin(115200);
+  //definición LEDS
+  pinMode(led_1, OUTPUT);
+  pinMode(led_2, OUTPUT);
+  pinMode(led_3, OUTPUT);
+  pinMode(led_4, OUTPUT);
+
+  //iniciar con leds apagadas
+  digitalWrite(led_1, LOW);
+  digitalWrite(led_2, LOW);
+  digitalWrite(led_3, LOW);
+  digitalWrite(led_4, LOW); 
+
+  //configurar boton avanzar
+  iniciarBut_Avanzar();
+  contador = 0;
+
+  //configurar boton retroceder
+  iniciarBut_Retroceder();
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//loop
+void loop(){
+  
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//otras funciones
+void iniciarBut_Avanzar(void){
+  //PASO 01. Configurar la entrada del boton
+  pinMode(but_Avanzar, INPUT_PULLUP);
+  //PASO 02. Asignar la ISR, FLANCO FALLING (de bajada)
+  attachInterrupt(but_Avanzar, &but_Avanzar_ISR, FALLING);
+}
+
+void iniciarBut_Retroceder(void){
+  //PASO 01. Configurar la entrada del boton
+  pinMode(but_Retroceder, INPUT_PULLUP);
+  //PASO 02. Asignar la ISR, FLANCO FALLING (de bajada)
+  attachInterrupt(but_Retroceder, &but_Retroceder_ISR, FALLING);
+}
