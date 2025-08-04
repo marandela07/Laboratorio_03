@@ -1,0 +1,83 @@
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//Universidad del Valle de Guatemala
+//Maryela Morales #23726
+//Electrónica Digital 02
+//05/08/2025
+//Laboratorio 03 - Funcionamiento Timer
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//librerías 
+#include <Arduino.h>
+#include <stdint.h>
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//definición de pines
+#define led_1 15
+#define led_2 2
+#define led_3 5
+#define led_4 18
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//prototipos de funciones
+void iniciarTimer(void);
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//variables globales
+//PASO 01. Instanciar Timer0
+hw_timer_t *timer0_Cfg = NULL;
+volatile uint8_t contador = 0;
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//ISRs rutinas de interrupción
+
+//funcion para funcionamiento en binario
+void IRAM_ATTR FuncionesBinario(void){
+  digitalWrite(led_1, (contador >> 3) & 0x01);
+  digitalWrite(led_2, (contador >> 2) & 0x01);
+  digitalWrite(led_3, (contador >> 1) & 0x01);
+  digitalWrite(led_4, (contador >> 0) & 0x01);
+
+  contador = (contador + 1) % 16;  // incremento circular de 4 bits
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//configuración 
+void setup() {
+  Serial.begin(115200);
+  //definición LEDS
+  pinMode(led_1, OUTPUT);
+  pinMode(led_2, OUTPUT);
+  pinMode(led_3, OUTPUT);
+  pinMode(led_4, OUTPUT);
+
+  //iniciar con leds apagadas
+  digitalWrite(led_1, LOW);
+  digitalWrite(led_2, LOW);
+  digitalWrite(led_3, LOW);
+  digitalWrite(led_4, LOW);
+
+  //Configuración del Timer 0
+  iniciarTimer();
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//loop
+void loop(){
+
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//otras funciones
+void iniciarTimer(void){
+  //PASO 02. Configurar timer 0, prescaler 80 y flanco (true) de subida
+  timer0_Cfg = timerBegin(0, 80, true);
+
+  //PASO 03. Configurar Handler ISR
+  timerAttachInterrupt(timer0_Cfg, &FuncionesBinario, true);
+  
+  //PASO 04. Configurar Alarma
+  timerAlarmWrite(timer0_Cfg, 250000, true);
+
+  //PASO 05. Iniciar Alarma
+  timerAlarmEnable(timer0_Cfg);
+}
