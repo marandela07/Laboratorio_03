@@ -1,0 +1,202 @@
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//Universidad del Valle de Guatemala
+//Maryela Morales #23726
+//Electrónica Digital 02
+//05/08/2025
+//Laboratorio 03 Funcionamiento Comparador
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//librerías 
+#include <Arduino.h>
+#include <stdint.h>
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//definición de pines
+
+//PINES FUNCIONAMIENTO INTERRUPCIONES
+#define led_1 15
+#define led_2 2
+#define led_3 5
+#define led_4 18
+#define but_Avanzar 32
+#define but_Retroceder 35
+#define delayDebounce 250
+
+//PINES FUNCIONAMIENTO TIMER
+#define led_5 19
+#define led_6 21
+#define led_7 22
+#define led_8 23
+
+//COMPARADOR
+#define alarma 27
+
+//RESET
+#define but_Reinicio T4
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//prototipos de funciones 
+
+//INTERRUPCIONES
+void iniciarBut_Avanzar(void);
+void iniciarBut_Retroceder(void);
+
+//TIMER
+void iniciarTimer(void);
+
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//variables globales
+
+//INTERRUPCIONES
+int contador = 0;
+volatile bool but_AvanzarPresionado;
+volatile bool but_RetrocederPresionado;
+volatile uint32_t lastBut_Avanzar = 0;
+volatile uint32_t lastBut_Retroceder = 0;
+
+//TIMER
+//PASO 01. Instanciar Timer0
+hw_timer_t *timer0_Cfg = NULL;
+volatile int timer = 0;
+
+//COMPARADOR
+volatile bool alarmaEncendida = false;
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//ISRS de interrupción
+
+//INTERRUPCIONES
+//funcion para funcionamiento en binario
+void IRAM_ATTR FuncionesBinario1(void){
+  digitalWrite(led_1, (contador >> 3) & 0x01);
+  digitalWrite(led_2, (contador >> 2) & 0x01);
+  digitalWrite(led_3, (contador >> 1) & 0x01);
+  digitalWrite(led_4, (contador >> 0) & 0x01);
+}
+
+//interrupción boton avanzar
+void IRAM_ATTR but_Avanzar_ISR(void){
+  uint32_t tiempoActual1 = millis();
+
+  if(tiempoActual1 - lastBut_Avanzar > delayDebounce){
+  but_AvanzarPresionado = true;
+  contador++;
+  if (contador > 15) contador = 0;
+  FuncionesBinario1();
+  lastBut_Avanzar = tiempoActual1;
+  }
+}
+
+//interrupción boton retroceder
+void IRAM_ATTR but_Retroceder_ISR(void){
+  uint32_t tiempoActual2 = millis();
+
+  if(tiempoActual2 - lastBut_Retroceder > delayDebounce){
+  but_RetrocederPresionado = true;
+  contador--;
+  if (contador < 0) contador = 15;
+  FuncionesBinario1();
+  lastBut_Retroceder = tiempoActual2;
+  }
+}
+
+//TIMER
+void IRAM_ATTR FuncionesBinario2(void){
+  digitalWrite(led_5, (timer >> 3) & 0x01);
+  digitalWrite(led_6, (timer >> 2) & 0x01);
+  digitalWrite(led_7, (timer >> 1) & 0x01);
+  digitalWrite(led_8, (timer >> 0) & 0x01);
+
+  timer = (timer + 1) % 16;  // incremento circular de 4 bits
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//configuración 
+void setup(){
+  Serial.begin(115200);
+  //definición LEDS
+  //INTERRUPCIONES
+  pinMode(led_1, OUTPUT);
+  pinMode(led_2, OUTPUT);
+  pinMode(led_3, OUTPUT);
+  pinMode(led_4, OUTPUT);
+
+  //TIMER
+  pinMode(led_5, OUTPUT);
+  pinMode(led_6, OUTPUT);
+  pinMode(led_7, OUTPUT);
+  pinMode(led_8, OUTPUT);
+
+  //COMPARADOR
+  pinMode(alarma, OUTPUT);
+
+  //INTERRPUCIONES
+  //configurar boton avanzar
+  iniciarBut_Avanzar();
+ 
+  //configurar boton retroceder
+  iniciarBut_Retroceder();
+
+  //TIMER
+  //Configuración del Timer 0
+  iniciarTimer();
+
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//loop
+void loop(){
+  int valorTouch = touchRead(but_Reinicio);
+  Serial.println(valorTouch);  //
+
+  if (valorTouch < 50) {  
+    timer = 0;
+    alarmaEncendida = false;
+    digitalWrite(alarma, LOW);
+  }
+
+  delay(100); 
+
+  if(contador == timer){
+    alarmaEncendida = !alarmaEncendida;
+    if(alarmaEncendida){
+      digitalWrite(alarma, HIGH);
+    } else {
+      digitalWrite(alarma, LOW);
+    }
+    timer = 0;
+  }
+}
+
+//.:*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.*・°☆.。.:*・°☆.。.:*・°☆.。.:*・°☆*:.
+//otras funciones
+
+//INTERRUPCIONES
+void iniciarBut_Avanzar(void){
+  //PASO 01. Configurar la entrada del boton
+  pinMode(but_Avanzar, INPUT_PULLUP);
+  //PASO 02. Asignar la ISR, FLANCO FALLING (de bajada)
+  attachInterrupt(but_Avanzar, &but_Avanzar_ISR, FALLING);
+}
+
+void iniciarBut_Retroceder(void){
+  //PASO 01. Configurar la entrada del boton
+  pinMode(but_Retroceder, INPUT_PULLUP);
+  //PASO 02. Asignar la ISR, FLANCO FALLING (de bajada)
+  attachInterrupt(but_Retroceder, &but_Retroceder_ISR, FALLING);
+}
+
+//TIMER
+void iniciarTimer(void){
+  //PASO 02. Configurar timer 0, prescaler 80 y flanco (true) de subida
+  timer0_Cfg = timerBegin(0, 80, true);
+
+  //PASO 03. Configurar Handler ISR
+  timerAttachInterrupt(timer0_Cfg, &FuncionesBinario2, true);
+  
+  //PASO 04. Configurar Alarma
+  timerAlarmWrite(timer0_Cfg, 3000000, true);
+
+  //PASO 05. Iniciar Alarma
+  timerAlarmEnable(timer0_Cfg);
+}
